@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useWindowStore } from '@/store/windowStore'
 import { config } from '@/config'
 
@@ -156,6 +156,22 @@ export default function Terminal({ windowId }: TerminalProps) {
   const addLines = useCallback((newLines: Array<{ text: string; type: TerminalLine['type'] }>) => {
     setLines((prev) => [...prev, ...newLines])
   }, [])
+
+  // Pre-generate stable random values so re-renders don't scramble them
+  const matrixColumns = useMemo(() =>
+    Array.from({ length: 24 }, (_, i) => ({
+      id: i,
+      left: `${(i / 24) * 100 + Math.random() * 2}%`,
+      duration: 1.2 + Math.random() * 1.6,
+      delay: Math.random() * 1.2,
+      fontSize: 13 + Math.floor(Math.random() * 6),
+      chars: Array.from({ length: 28 }, () =>
+        String.fromCharCode(0x30A0 + Math.floor(Math.random() * 96))
+      ).join('\n'),
+    })),
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [matrixActive]   // regenerate fresh chars each time it activates
+  )
 
   const runMatrix = useCallback(() => {
     setMatrixActive(true)
@@ -380,22 +396,23 @@ export default function Terminal({ windowId }: TerminalProps) {
       {/* Matrix overlay */}
       {matrixActive && (
         <div className="absolute inset-0 z-10 overflow-hidden pointer-events-none">
-          {Array.from({ length: 20 }).map((_, i) => (
+          {matrixColumns.map((col) => (
             <div
-              key={i}
+              key={col.id}
               style={{
                 position: 'absolute',
-                left: `${i * 5}%`,
-                top: '-20px',
+                left: col.left,
+                top: '-120px',
                 color: '#00ff00',
                 fontFamily: 'VT323, monospace',
-                fontSize: '16px',
-                animation: `matrix-drop ${0.5 + Math.random() * 1.5}s linear forwards`,
-                animationDelay: `${Math.random() * 1}s`,
-                whiteSpace: 'nowrap',
+                fontSize: col.fontSize,
+                whiteSpace: 'pre',
+                lineHeight: '1.2',
+                animation: `matrix-drop ${col.duration}s linear ${col.delay}s both`,
+                textShadow: '0 0 8px #00ff00',
               }}
             >
-              {Array.from({ length: 30 }, () => String.fromCharCode(0x30A0 + Math.random() * 96)).join('')}
+              {col.chars}
             </div>
           ))}
         </div>
